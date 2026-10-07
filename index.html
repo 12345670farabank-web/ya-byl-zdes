@@ -444,14 +444,16 @@ if (!name || !city || !message) {
 
   } catch (error) {
 
-    console.error(
-      'Ошибка:',
-      error
-    );
+  } catch (error) {
 
-    status.textContent =
-      'Что-то пошло не так.';
-  }
+  console.error(
+    'Ошибка:',
+    error
+  );
+
+  status.textContent =
+    'Что-то пошло не так.';
+}
 }
 
 function randomTrace() {
