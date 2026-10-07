@@ -199,7 +199,13 @@
         type="text"
         maxlength="80"
         placeholder="Город"
-      >
+      ><input
+  id="place"
+  type="text"
+  maxlength="120"
+  placeholder="Улица или место"
+>
+      
 
       <textarea
         id="message"
@@ -334,15 +340,17 @@ async function addTrace() {
     document.getElementById('name').value.trim();
 
   const city =
-    document.getElementById('city').value.trim();
+  document.getElementById('city').value.trim();
 
-  const message =
-    document.getElementById('message').value.trim();
+const place =
+  document.getElementById('place').value.trim();
 
+const message =
+  document.getElementById('message').value.trim();
   const status =
     document.getElementById('status');
 
-if (!name || !city || !message) {
+if (!name || !city || !place || !message) {
 
     status.textContent =
       'Заполни все поля.';
@@ -355,13 +363,12 @@ if (!name || !city || !message) {
 
   try {
 
-    const url =
-      'https://nominatim.openstreetmap.org/search' +
-      '?format=json' +
-      '&limit=1' +
-      '&q=' +
-      encodeURIComponent(city);
-
+   const url =
+  'https://nominatim.openstreetmap.org/search' +
+  '?format=json' +
+  '&limit=1' +
+  '&q=' +
+  encodeURIComponent(city + ', ' + place);
     const response =
       await fetch(url);
 
@@ -419,9 +426,10 @@ if (!name || !city || !message) {
 
     updateCounter();
 
-    document.getElementById('name').value = '';
-    document.getElementById('city').value = '';
-    document.getElementById('message').value = '';
+   document.getElementById('name').value = '';
+document.getElementById('city').value = '';
+document.getElementById('place').value = '';
+document.getElementById('message').value = '';
 
     status.textContent =
       'След оставлен!';
