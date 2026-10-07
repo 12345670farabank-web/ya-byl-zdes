@@ -232,7 +232,7 @@ const SUPABASE_URL = 'https://uqbdfryvadbayvyianwi.supabase.co';
 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYmRmcnl2YWRiYXl2eWlhbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzMxNzMsImV4cCI6MjEwNjk0OTE3M30.a01gGSCFwAnh8p0xs3vzgunbP3xTa19rzCPQWB56S3I';
 
-const supabase = window.supabase.createClient(
+const db = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
@@ -284,7 +284,7 @@ function updateCounter() {
 
 async function loadTraces() {
 
-  const result = await supabase
+  const result = await db
     .from('traces')
     .select('*')
     .order('created_at', {
@@ -386,7 +386,7 @@ if (!name || !city || !message) {
       'Сохраняем след...';
 
     const result =
-      await supabase
+      await db
         .from('traces')
         .insert([
           {
