@@ -228,376 +228,260 @@
 
   <script>
 
-    // =========================// SUPABASE
-    // =========================
+const SUPABASE_URL = 'https://uqbdfryvadbayvyianwi.supabase.co';
 
-    const SUPABASE_URL =
-      'https://uqbdfryvadbayvyianwi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYmRmcnl2YWRiYXl2eWlhbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzMxNzMsImV4cCI6MjEwNjk0OTE3M30.a01gGSCFwAnh8p0xs3vzgunbP3xTa19rzCPQWB56S3I';
 
-    const SUPABASE_ANON_KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYmRmcnl2YWRiYXl2eWlhbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzMxNzMsImV4cCI6MjEwNjk0OTE3M30.a01gGSCFwAnh8p0xs3vzgunbP3xTa19rzCPQWB56S3I';
+const supabase = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-    const supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
+const map = L.map('map').setView([30, 10], 2);
+
+L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }
+).addTo(map);
+
+let traces = [];
+let markers = [];
+
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function createMarker(trace) {
+
+  const marker = L.marker([
+    trace.latitude,
+    trace.longitude
+  ]).addTo(map);
+
+  marker.bindPopup(
+    '<strong>' +
+    escapeHtml(trace.city) +
+    '</strong><br>' +
+    escapeHtml(trace.name) +
+    '<br><br>' +
+    escapeHtml(trace.message)
+  );
+
+  markers.push(marker);
+}
+
+function updateCounter() {
+
+  document.getElementById('counter').textContent =
+    traces.length;
+}
+
+async function loadTraces() {
+
+  const result = await supabase
+    .from('traces')
+    .select('*')
+    .order('created_at', {
+      ascending: true
+    });
+
+  if (result.error) {
+
+    console.error(
+      'Ошибка загрузки:',
+      result.error
     );
 
+    return;
+  }
 
-    // =========================
-    // КАРТА
-    // =========================
+  traces = result.data || [];
 
-    const map = L.map('map').setView([30, 10], 2);
+  markers.forEach(function(marker) {
+    map.removeLayer(marker);
+  });
 
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }
-    ).addTo(map);
+  markers = [];
 
+  traces.forEach(function(trace) {
+    createMarker(trace);
+  });
 
-    // =========================
-    // ДАННЫЕ
-    // =========================
+  updateCounter();
+}
 
-    let traces = [];
+function showForm() {
 
-    const markers = [];
+  const form = document.getElementById('form');
 
+  form.style.display = 'block';
 
-    // =========================
-    // ЭКРАНИРОВАНИЕ ТЕКСТА
-    // =========================
+  form.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center'
+  });
+}
 
-    function escapeHtml(text) {
+async function addTrace() {
 
-      return String(text)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+  const name =
+    document.getElementById('name').value.trim();
 
-    }
+  const city =
+    document.getElementById('city').value.trim();
 
+  const message =
+    document.getElementById('message').value.trim();
 
-    // =========================
-    // СОЗДАНИЕ МАРКЕРА
-    // =========================
+  const status =
+    document.getElementById('status');
 
-    function createMarker(trace) {
+  if (!name  !city  !message) {
 
-      const marker = L.marker([
-        trace.lat,
-        trace.lng
-      ]).addTo(map);
+    status.textContent =
+      'Заполни все поля.';
 
-      marker.bindPopup(`
-        <strong>${escapeHtml(trace.city)}</strong><br>
-        ${escapeHtml(trace.name)}<br>
-        <br>
-        ${escapeHtml(trace.message)}
-      `);
+    return;
+  }
 
-      markers.push(marker);
+  status.textContent =
+    'Ищем город...';
 
-    }
+  try {
 
+    const url =
+      'https://nominatim.openstreetmap.org/search' +
+      '?format=json' +
+      '&limit=1' +
+      '&q=' +
+      encodeURIComponent(city);
 
-    // =========================
-    // СЧЁТЧИК
-    // =========================
+    const response =
+      await fetch(url);
 
-    function updateCounter() {
+    const locations =
+      await response.json();
 
-      document.getElementById('counter').textContent =
-        traces.length;
-
-    }
-
-
-    // =========================
-    // ЗАГРУЗКА СЛЕДОВ
-    // =========================
-
-    async function loadTraces() {
-
-      const { data, error } = await supabase
-        .from('traces')
-        .select('*')
-        .order('created_at', {
-          ascending: true
-        });
-
-      if (error) {
-
-        console.error(
-          'Ошибка загрузки следов:',
-          error
-        );
-
-        return;
-      }
-
-      traces = data || [];
-
-
-      // Удаляем старые маркеры
-
-      markers.forEach(marker => {
-
-        map.removeLayer(marker);
-
-      });
-
-      markers.length = 0;
-
-
-      // Создаём маркеры из базы
-
-      traces.forEach(trace => {
-
-        createMarker({
-          name: trace.name,
-          city: trace.city,
-          message: trace.message,
-          lat: trace.latitude,
-          lng: trace.longitude
-        });
-
-      });
-
-
-      updateCounter();
-
-    }
-
-
-    // =========================
-    // ПОКАЗАТЬ ФОРМУ
-    // =========================
-
-    function showForm() {
-
-      const form =
-        document.getElementById('form');
-
-      form.style.display = 'block';
-
-      form.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-
-    }
-
-
-    // =========================
-    // ДОБАВИТЬ СЛЕД
-    // =========================
-
-    async function addTrace() {
-
-      const name =
-        document.getElementById('name').value.trim();
-
-      const city =
-        document.getElementById('city').value.trim();
-
-      const message =
-        document.getElementById('message').value.trim();
-
-      const status =
-        document.getElementById('status');
-
-
-      if (!name  !city  !message) {
-
-        status.textContent =
-          'Заполни все поля.';
-
-        return;
-
-      }
-
+    if (locations.length === 0) {
 
       status.textContent =
-        'Ищем город...';
+        'Город не найден. Проверь название.';
 
-
-      try {
-
-        const response = await fetch(
-          https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}
-        );
-
-
-        const locations =
-          await response.json();
-
-
-        if (!locations.length) {
-
-          status.textContent =
-            'Город не найден. Проверь название.';
-
-          return;
-
-        }
-
-
-        const latitude =
-          parseFloat(locations[0].lat);
-
-        const longitude =
-          parseFloat(locations[0].lon);
-
-
-        status.textContent =
-          'Сохраняем след...';
-
-
-        const { data, error } =await supabase
-            .from('traces')
-            .insert([
-              {
-                name: name,
-                city: city,
-                message: message,
-                latitude: latitude,
-                longitude: longitude
-              }
-            ])
-            .select()
-            .single();
-
-
-        if (error) {
-
-          console.error(
-            'Ошибка Supabase:',
-            error
-          );
-
-          status.textContent =
-            'Ошибка сохранения следа.';
-
-          return;
-
-        }
-
-
-        // Добавляем новый след в память
-
-        traces.push(data);
-
-
-        // Создаём его маркер
-
-        createMarker({
-          name: data.name,
-          city: data.city,
-          message: data.message,
-          lat: data.latitude,
-          lng: data.longitude
-        });
-
-
-        // Обновляем счётчик
-
-        updateCounter();
-
-
-        // Очищаем форму
-
-        document.getElementById('name').value = '';
-        document.getElementById('city').value = '';
-        document.getElementById('message').value = '';
-
-
-        status.textContent =
-          'След оставлен!';
-
-
-        // Перемещаем карту к новому следу
-
-        map.flyTo(
-          [
-            latitude,
-            longitude
-          ],
-          7,
-          {
-            duration: 1.5
-          }
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          'Ошибка:',
-          error
-        );
-
-        status.textContent =
-          'Что-то пошло не так.';
-
-      }
-
+      return;
     }
 
+    const latitude =
+      parseFloat(locations[0].lat);
 
-    // =========================
-    // СЛУЧАЙНЫЙ СЛЕД
-    // =========================
+    const longitude =
+      parseFloat(locations[0].lon);
 
-    function randomTrace() {
+    status.textContent =
+      'Сохраняем след...';
 
-      if (markers.length === 0) {
+    const result =
+      await supabase
+        .from('traces')
+        .insert([
+          {
+            name: name,
+            city: city,
+            message: message,
+            latitude: latitude,
+            longitude: longitude
+          }
+        ])
+        .select()
+        .single();
 
-        return;
+    if (result.error) {
 
-      }
-
-
-      const randomIndex =
-        Math.floor(
-          Math.random() * markers.length
-        );
-
-
-      const marker =
-        markers[randomIndex];
-
-
-      map.flyTo(
-        marker.getLatLng(),
-        7,
-        {
-          duration: 1.5
-        }
+      console.error(
+        'Ошибка Supabase:',
+        result.error
       );
 
+      status.textContent =
+        'Ошибка сохранения следа.';
 
-      setTimeout(() => {
-
-        marker.openPopup();
-
-      }, 1500);
-
+      return;
     }
 
+    traces.push(result.data);
 
-    // =========================
-    // ЗАПУСК
-    // =========================
+    createMarker(result.data);
 
-    loadTraces();
+    updateCounter();
 
-  </script>
+    document.getElementById('name').value = '';
+    document.getElementById('city').value = '';
+    document.getElementById('message').value = '';
+
+    status.textContent =
+      'След оставлен!';
+
+    map.flyTo(
+      [
+        latitude,
+        longitude
+      ],
+      7,
+      {
+        duration: 1.5
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Ошибка:',
+      error
+    );
+
+    status.textContent =
+      'Что-то пошло не так.';
+  }
+}
+
+function randomTrace() {
+
+  if (markers.length === 0) {
+
+    return;
+  }
+
+  const randomIndex =
+    Math.floor(
+      Math.random() * markers.length
+    );
+
+  const marker =
+    markers[randomIndex];
+
+  map.flyTo(
+    marker.getLatLng(),
+    7,
+    {
+      duration: 1.5
+    }
+  );
+
+  setTimeout(function() {
+
+    marker.openPopup();}, 1500);
+}
+
+loadTraces();
+
+</script>
 
 </body>
 </html>
