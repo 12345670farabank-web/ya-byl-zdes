@@ -267,12 +267,9 @@ function createMarker(trace) {
   marker.bindPopup(
     '<strong>' +
     escapeHtml(trace.city) +
-    '</strong>
-' +
+    '</strong><br>' +
     escapeHtml(trace.name) +
-    '
-
-' +
+    '<br><br>' +
     escapeHtml(trace.message)
   );
 
