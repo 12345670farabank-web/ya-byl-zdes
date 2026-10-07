@@ -224,8 +224,16 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
+    const SUPABASE_URL = 'https://uqbdfryvadbayvyianwi.supabase.co/rest/v1/16:30';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxYmRmcnl2YWRiYXl2eWlhbndpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzMxNzMsImV4cCI6MjEwNjk0OTE3M30.a01gGSCFwAnh8p0xs3vzgunbP3xTa19rzCPQWB56S3I16:30';
+
+const supabase = window.supabase.createClient(
+SUPABASE_URL,
+SUPABASE_ANON_KEY
+);
 
     // Создаём карту
     const map = L.map('map').setView([30, 10], 2);
@@ -239,22 +247,7 @@
     ).addTo(map);
 
     // Временные тестовые следы
-    const traces = [
-      {
-        name: "Илья",
-        city: "Рыбинск",
-        message: "Я был здесь.",
-        lat: 58.05,
-        lng: 38.86
-      },
-      {
-        name: "Alex",
-        city: "Москва",
-        message: "Первый след.",
-        lat: 55.75,
-        lng: 37.62
-      }
-    ];
+   let traces = [];
 
     const markers = [];
 
@@ -283,12 +276,51 @@
     }
 
     traces.forEach(createMarker);
+    loadTraces();
 
     updateCounter();
 
     function updateCounter() {
       document.getElementById('counter').textContent = traces.length;
+  
     }
+   async function loadTraces() {
+
+  const { data, error } = await supabase
+    .from('traces')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Ошибка загрузки следов:', error);
+    return;
+  }
+
+  traces = data || [];
+
+  markers.forEach(marker => map.removeLayer(marker));
+  markers.length = 0;
+
+  traces.forEach(trace => {
+
+    const marker = L.marker([
+      trace.latitude,
+      trace.longitude
+    ]).addTo(map);
+
+    marker.bindPopup(`
+      <strong>${escapeHtml(trace.city)}</strong><br>
+      ${escapeHtml(trace.name)}<br>
+      <br>
+      ${escapeHtml(trace.message)}
+    `);
+
+    markers.push(marker);
+
+  });
+
+  updateCounter();
+}
 
     function showForm() {
 
@@ -302,24 +334,83 @@
       });
     }
 
-    function addTrace() {
+    async function addTrace() {
 
-      const name = document.getElementById('name').value.trim();
-      const city = document.getElementById('city').value.trim();
-      const message = document.getElementById('message').value.trim();
+  const name = document.getElementById('name').value.trim();
+  const city = document.getElementById('city').value.trim();
+  const message = document.getElementById('message').value.trim();
 
-      const status = document.getElementById('status');
+  const status = document.getElementById('status');
 
-      if (!name  !city  !message) {
-        status.textContent = 'Заполни все поля.';
-        return;
-      }
+  if (!name  !city  !message) {
+    status.textContent = 'Заполни все поля.';
+    return;
+  }
 
-      status.textContent =
-        'Пока это тестовая версия. Подключаем базу...';
+  status.textContent = 'Сохраняем след...';
 
+  try {
+
+    const response = await fetch(
+      https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}
+    );
+
+    const locations = await response.json();
+
+    if (!locations.length) {
+      status.textContent = 'Город не найден. Проверь название.';
+      return;
     }
 
+    const latitude = parseFloat(locations[0].lat);
+    const longitude = parseFloat(locations[0].lon);
+
+    const { data, error } = await supabase
+      .from('traces')
+      .insert([
+        {
+          name: name,
+          city: city,
+          message: message,
+          latitude: latitude,
+          longitude: longitude
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+      status.textContent = 'Ошибка сохранения следа.';
+      return;
+    }
+
+    traces.push(data);
+
+    createMarker({
+      name: data.name,
+      city: data.city,
+      message: data.message,
+      lat: data.latitude,
+      lng: data.longitude
+    });
+
+    updateCounter();
+
+    status.textContent = 'След оставлен!';
+
+    document.getElementById('name').value = '';
+    document.getElementById('city').value = '';
+    document.getElementById('message').value = '';
+
+  } catch (error) {
+
+    console.error(error);
+    status.textContent = 'Что-то пошло не так.';
+
+  }
+
+}
     function randomTrace() {
 
       if (markers.length === 0) return;
