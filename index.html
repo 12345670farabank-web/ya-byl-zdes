@@ -344,7 +344,7 @@ async function addTrace() {
   const status =
     document.getElementById('status');
 
- if (!name !city !message) {17:27
+if (!name || !city || !message) {
 
     status.textContent =
       'Заполни все поля.';
